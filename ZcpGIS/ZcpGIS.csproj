@@ -35,6 +35,9 @@
     <Reference Include="MyMapObjects">
       <HintPath>..\..\MyMapObjectsDemo\MyMapObjects\bin\Debug\MyMapObjects.dll</HintPath>
     </Reference>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.13.0.3\lib\net40\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -47,6 +50,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="boxEdit.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="boxEdit.Designer.cs">
+      <DependentUpon>boxEdit.cs</DependentUpon>
+    </Compile>
     <Compile Include="DataIOTools.cs" />
     <Compile Include="frmLayerAttributes.cs">
       <SubType>Form</SubType>
@@ -72,8 +81,17 @@
     <Compile Include="frmMain.Designer.cs">
       <DependentUpon>frmMain.cs</DependentUpon>
     </Compile>
+    <Compile Include="frmPointRenderer.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmPointRenderer.Designer.cs">
+      <DependentUpon>frmPointRenderer.cs</DependentUpon>
+    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="boxEdit.resx">
+      <DependentUpon>boxEdit.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="frmLayerAttributes.resx">
       <DependentUpon>frmLayerAttributes.cs</DependentUpon>
     </EmbeddedResource>
@@ -86,6 +104,9 @@
     <EmbeddedResource Include="frmMain.resx">
       <DependentUpon>frmMain.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="frmPointRenderer.resx">
+      <DependentUpon>frmPointRenderer.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
@@ -95,6 +116,8 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <None Include="app.config" />
+    <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
@@ -104,6 +127,9 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="DefaultSavePath\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

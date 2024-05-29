@@ -18,6 +18,7 @@ namespace ZcpGIS
         private MyMapObjects.moFeatures _IdentifiedFeatures;
         private bool mChangeByUser = true;  // 改变是否用户发起，用于网格控件的事件处理
         private Int32 mSearchIndex = -1;
+        private Int32 mSearchType = -1;
 
         #endregion
 
@@ -41,7 +42,10 @@ namespace ZcpGIS
         // 收到通知 图层变化
         internal void NotifiedLayerChanged(object sender)
         {
-            // 不再编写
+            mChangeByUser = false;
+            SetRowSelections();
+            SetIdentifiedFeatures();
+            mChangeByUser = true;
         }
 
         // 收到通知 字段变化
@@ -222,37 +226,99 @@ namespace ZcpGIS
         {
             mSearchIndex = tsSelectAttributes.SelectedIndex;
             MyMapObjects.moFields sFields = _Layer.AttributeFields;
-            Int32 sFieldCount = sFields.Count;
-            for (Int32 i = 0; i < sFieldCount; ++i)
+            moField sField = sFields.GetItem(mSearchIndex);
+            if (sField.ValueType == moValueTypeConstant.dText) // 文本类型，只支持模糊检索
             {
-                string sColumnText = "";
-                MyMapObjects.moField sField = sFields.GetItem(i);
-                sColumnText = sField.Name;
-                dgvAttributes.Columns[i].HeaderText = sColumnText;
-                tsSelectAttributes.Items.Add(sColumnText);
+                tsQueryType.Items.Add("=");
+            }
+            else if (sField.ValueType == moValueTypeConstant.dInt16 ||
+                sField.ValueType == moValueTypeConstant.dInt32 || 
+                sField.ValueType == moValueTypeConstant.dInt64 ||
+                sField.ValueType == moValueTypeConstant.dSingle ||
+                sField.ValueType == moValueTypeConstant.dDouble)  // 数字类型，支持大小或者等值
+            {
+                tsQueryType.Items.Add("=");
+                tsQueryType.Items.Add("<");
+                tsQueryType.Items.Add(">");
             }
         }
 
         private void tsSearchText_TextChanged(object sender, EventArgs e)
         {
-            if (mSearchIndex == -1 || tsSearchText.Text == null) return;
+            if (mSearchIndex == -1 || mSearchType == -1 || tsSearchText.Text == null) return;
             Int32 sColumnIndex = mSearchIndex;
             Int32 sFeatureCount = _Layer.Features.Count;
             List<Int32> sFoundedIndexs = new List<Int32>();
             for (Int32 i = 0; i < sFeatureCount; ++i)
             {
                 Int32 sIndex = i;
-                dgvAttributes.Rows[sIndex].DefaultCellStyle.BackColor = SystemColors.Window;
+                dgvAttributes.Rows[sIndex].DefaultCellStyle.BackColor = SystemColors.Window;  // 重置查找
                 MyMapObjects.moFeature sFeature = _Layer.Features.GetItem(sIndex);
                 object sValue = sFeature.Attributes.GetItem(sColumnIndex);
-                string targetText = sValue.ToString();
-                if (targetText.Contains(tsSearchText.Text))
+                if(mSearchType == 0)
                 {
-                    sFoundedIndexs.Add(sIndex);
-                    dgvAttributes.Rows[sIndex].DefaultCellStyle.BackColor = Color.FromArgb(128, 255, 128);
+                    string targetText = sValue.ToString();
+                    if (targetText.Contains(tsSearchText.Text))
+                    {
+                        sFoundedIndexs.Add(sIndex);
+                        dgvAttributes.Rows[sIndex].DefaultCellStyle.BackColor = Color.FromArgb(128, 255, 128);
+                    }
+                }
+                else if (mSearchType == 1)  // <
+                {
+                    if (double.TryParse(tsSearchText.Text, out double searchNum))
+                    {
+                        double targetNum = double.Parse(sValue.ToString());
+                        if (targetNum < searchNum)
+                        {
+                            sFoundedIndexs.Add(sIndex);
+                            dgvAttributes.Rows[sIndex].DefaultCellStyle.BackColor = Color.FromArgb(128, 255, 128);
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("输入的值不是有效的数字格式");
+                    }
+                }
+                else if (mSearchType == 2)  // >
+                {
+                    if (double.TryParse(tsSearchText.Text, out double searchNum))
+                    {
+                        double targetNum = double.Parse(sValue.ToString());
+                        if (targetNum > searchNum)
+                        {
+                            sFoundedIndexs.Add(sIndex);
+                            dgvAttributes.Rows[sIndex].DefaultCellStyle.BackColor = Color.FromArgb(128, 255, 128);
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("输入的值不是有效的数字格式");
+                    }
                 }
             }
             tsSearchResult.Text = "已找到记录：" + sFoundedIndexs.Count.ToString();
+        }
+
+        private void dgvAttributes_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right) // 检查是否是右键点击
+            {
+                // 使用 HitTest 方法获取鼠标点击处的 DataGridView 元素信息
+                DataGridView.HitTestInfo hit = dgvAttributes.HitTest(e.X, e.Y);
+
+                if (hit.Type == DataGridViewHitTestType.ColumnHeader) // 如果点击的是列标题
+                {
+                    int columnIndex = hit.ColumnIndex; // 获取列索引
+                    string columnName = dgvAttributes.Columns[columnIndex].Name; // 获取列名
+
+                    // 设置 ContextMenuStrip 关联的 DataGridView 和列索引属性
+                    cmsEdit.Tag = new Tuple<DataGridView, int>(dgvAttributes, columnIndex);
+
+                    // 显示 ContextMenuStrip
+                    cmsEdit.Show(Cursor.Position);
+                }
+            }
         }
 
         #endregion
@@ -264,8 +330,140 @@ namespace ZcpGIS
         }
 
 
+
         #endregion
 
+        private void btnDeleteAttribute_Click(object sender, EventArgs e)
+        {
+            // 从 ContextMenuStrip 的 Tag 属性中获取关联的 DataGridView 和列索引
+            var tuple = cmsEdit.Tag as Tuple<DataGridView, int>;
+            DataGridView dataGridView = tuple.Item1;
+            int columnIndex = tuple.Item2;
+            MyMapObjects.moFields sFields = _Layer.AttributeFields;
+            sFields.RemoveAt(columnIndex);
+            dgvAttributes.Columns.RemoveAt(columnIndex);
+        }
 
+        private void dgvAttributes_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            // 确保双击的不是标题行
+            if (e.RowIndex >= 0 && e.ColumnIndex >= 0)
+            {
+                DataGridViewCell cell = dgvAttributes.Rows[e.RowIndex].Cells[e.ColumnIndex];
+                // 取单元格的值，然后进行更改操作
+                dgvAttributes.CurrentCell = cell;
+                boxEdit sBoxEdit = new boxEdit();
+                if (sBoxEdit.ShowDialog(this) == DialogResult.OK)
+                {
+                    string sValue;
+                    sBoxEdit.GetData(out sValue);
+                    MyMapObjects.moField sField = _Layer.AttributeFields.GetItem(e.ColumnIndex);
+                    if (sField.ValueType == moValueTypeConstant.dText)  // 如果是字符串，则需要转化
+                    {
+                        MyMapObjects.moFeature sFeature = _Layer.Features.GetItem(e.RowIndex);
+                        sFeature.Attributes.SetItem(e.ColumnIndex, sValue);
+                        CreateColumns();
+                        SetColumnTexts();
+                        CreateRows();
+                    }
+                    else if (sField.ValueType == moValueTypeConstant.dDouble)
+                    {
+                        if (double.TryParse(sValue, out double intValue))
+                        {
+                            MyMapObjects.moFeature sFeature = _Layer.Features.GetItem(e.RowIndex);
+                            sFeature.Attributes.SetItem(e.ColumnIndex, intValue);
+                            CreateColumns();
+                            SetColumnTexts();
+                            CreateRows();
+                        }
+                        else
+                        {
+                            MessageBox.Show("输入的值不是有效的双精度格式");
+                        }
+                    }
+                    else if (sField.ValueType == moValueTypeConstant.dInt32)
+                    {
+                        if (Int32.TryParse(sValue, out Int32 intValue))
+                        {
+                            MyMapObjects.moFeature sFeature = _Layer.Features.GetItem(e.RowIndex);
+                            sFeature.Attributes.SetItem(e.ColumnIndex, intValue);
+                            CreateColumns();
+                            SetColumnTexts();
+                            CreateRows();
+                        }
+                        else
+                        {
+                            MessageBox.Show("输入的值不是有效的整型格式");
+                        }
+                    }
+                }
+            }
+        }
+
+        private void dgvAttributes_CellEndEdit(object sender, DataGridViewCellEventArgs e)
+        {
+        }
+
+        private void tsmStringType_Click(object sender, EventArgs e)
+        {
+            // 从 ContextMenuStrip 的 Tag 属性中获取关联的 DataGridView 和列索引
+            var tuple = cmsEdit.Tag as Tuple<DataGridView, int>;
+            DataGridView dataGridView = tuple.Item1;
+            int columnIndex = tuple.Item2;
+            MyMapObjects.moFields sFields = _Layer.AttributeFields;
+            boxEdit sBoxEdit = new boxEdit();
+            if (sBoxEdit.ShowDialog(this) == DialogResult.OK)
+            {
+                string name;
+                sBoxEdit.GetData(out name);
+                sFields.Append(new moField(name, moValueTypeConstant.dText));
+                CreateColumns();
+                SetColumnTexts();
+                CreateRows();
+            }
+        }
+
+        private void tsmDoubleType_Click(object sender, EventArgs e)
+        {
+            // 从 ContextMenuStrip 的 Tag 属性中获取关联的 DataGridView 和列索引
+            var tuple = cmsEdit.Tag as Tuple<DataGridView, int>;
+            DataGridView dataGridView = tuple.Item1;
+            int columnIndex = tuple.Item2;
+            MyMapObjects.moFields sFields = _Layer.AttributeFields;
+            boxEdit sBoxEdit = new boxEdit();
+            if (sBoxEdit.ShowDialog(this) == DialogResult.OK)
+            {
+                string name;
+                sBoxEdit.GetData(out name);
+                sFields.Append(new moField(name, moValueTypeConstant.dDouble));
+                CreateColumns();
+                SetColumnTexts();
+                CreateRows();
+            }
+        }
+
+        private void tsmIntType_Click(object sender, EventArgs e)
+        {
+            // 从 ContextMenuStrip 的 Tag 属性中获取关联的 DataGridView 和列索引
+            var tuple = cmsEdit.Tag as Tuple<DataGridView, int>;
+            DataGridView dataGridView = tuple.Item1;
+            int columnIndex = tuple.Item2;
+            MyMapObjects.moFields sFields = _Layer.AttributeFields;
+            boxEdit sBoxEdit = new boxEdit();
+            if (sBoxEdit.ShowDialog(this) == DialogResult.OK)
+            {
+                string name;
+                sBoxEdit.GetData(out name);
+                sFields.Append(new moField(name, moValueTypeConstant.dInt32));
+                CreateColumns();
+                SetColumnTexts();
+                CreateRows();
+            }
+        }
+
+        private void tsQueryType_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            mSearchType = tsQueryType.SelectedIndex;
+        }
     }
 }

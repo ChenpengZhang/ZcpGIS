@@ -32,28 +32,28 @@
             this.tssCoordinate = new System.Windows.Forms.ToolStripStatusLabel();
             this.tssMapScale = new System.Windows.Forms.ToolStripStatusLabel();
             this.panel1 = new System.Windows.Forms.Panel();
-            this.btnSketchPolygon = new System.Windows.Forms.Button();
+            this.btnLoadZshp = new System.Windows.Forms.Button();
+            this.btnNewLayer = new System.Windows.Forms.Button();
+            this.btnBitmap = new System.Windows.Forms.Button();
+            this.btnLoadRender = new System.Windows.Forms.Button();
+            this.btnSaveRender = new System.Windows.Forms.Button();
             this.chkShowLngLat = new System.Windows.Forms.CheckBox();
             this.btnEndEdit = new System.Windows.Forms.Button();
-            this.btnEditPolygon = new System.Windows.Forms.Button();
             this.btnEndSketch = new System.Windows.Forms.Button();
-            this.btnEndPart = new System.Windows.Forms.Button();
-            this.btnMovePolygon = new System.Windows.Forms.Button();
             this.btnLoadLayer = new System.Windows.Forms.Button();
-            this.moMap = new MyMapObjects.moMapcontrol();
             this.menuStrip1 = new System.Windows.Forms.MenuStrip();
             this.toolStripZoomIn = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripZoomOut = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripPan = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSelect = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripIdentify = new System.Windows.Forms.ToolStripMenuItem();
-            this.panelLayerTree = new System.Windows.Forms.Panel();
-            this.treeViewLayers = new System.Windows.Forms.TreeView();
+            this.tsConditionIndicate = new System.Windows.Forms.ToolStripTextBox();
             this.label1 = new System.Windows.Forms.Label();
+            this.treeViewLayers = new System.Windows.Forms.TreeView();
+            this.moMap = new MyMapObjects.moMapcontrol();
             this.statusStrip1.SuspendLayout();
             this.panel1.SuspendLayout();
             this.menuStrip1.SuspendLayout();
-            this.panelLayerTree.SuspendLayout();
             this.SuspendLayout();
             // 
             // statusStrip1
@@ -91,13 +91,14 @@
             // 
             // panel1
             // 
-            this.panel1.Controls.Add(this.btnSketchPolygon);
+            this.panel1.Controls.Add(this.btnLoadZshp);
+            this.panel1.Controls.Add(this.btnNewLayer);
+            this.panel1.Controls.Add(this.btnBitmap);
+            this.panel1.Controls.Add(this.btnLoadRender);
+            this.panel1.Controls.Add(this.btnSaveRender);
             this.panel1.Controls.Add(this.chkShowLngLat);
             this.panel1.Controls.Add(this.btnEndEdit);
-            this.panel1.Controls.Add(this.btnEditPolygon);
             this.panel1.Controls.Add(this.btnEndSketch);
-            this.panel1.Controls.Add(this.btnEndPart);
-            this.panel1.Controls.Add(this.btnMovePolygon);
             this.panel1.Controls.Add(this.btnLoadLayer);
             this.panel1.Location = new System.Drawing.Point(957, 27);
             this.panel1.Margin = new System.Windows.Forms.Padding(2);
@@ -105,21 +106,68 @@
             this.panel1.Size = new System.Drawing.Size(123, 554);
             this.panel1.TabIndex = 1;
             // 
-            // btnSketchPolygon
+            // btnLoadZshp
             // 
-            this.btnSketchPolygon.Location = new System.Drawing.Point(15, 106);
-            this.btnSketchPolygon.Name = "btnSketchPolygon";
-            this.btnSketchPolygon.Size = new System.Drawing.Size(90, 31);
-            this.btnSketchPolygon.TabIndex = 20;
-            this.btnSketchPolygon.Text = "描绘多边形";
-            this.btnSketchPolygon.UseVisualStyleBackColor = true;
+            this.btnLoadZshp.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.btnLoadZshp.Location = new System.Drawing.Point(15, 95);
+            this.btnLoadZshp.Name = "btnLoadZshp";
+            this.btnLoadZshp.Size = new System.Drawing.Size(90, 33);
+            this.btnLoadZshp.TabIndex = 24;
+            this.btnLoadZshp.Text = "载入.zshp";
+            this.btnLoadZshp.UseVisualStyleBackColor = true;
+            this.btnLoadZshp.Click += new System.EventHandler(this.btnLoadZshp_Click);
+            // 
+            // btnNewLayer
+            // 
+            this.btnNewLayer.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.btnNewLayer.Location = new System.Drawing.Point(15, 19);
+            this.btnNewLayer.Name = "btnNewLayer";
+            this.btnNewLayer.Size = new System.Drawing.Size(90, 33);
+            this.btnNewLayer.TabIndex = 23;
+            this.btnNewLayer.Text = "新建图层";
+            this.btnNewLayer.UseVisualStyleBackColor = true;
+            this.btnNewLayer.Click += new System.EventHandler(this.btnNewLayer_Click);
+            // 
+            // btnBitmap
+            // 
+            this.btnBitmap.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.btnBitmap.Location = new System.Drawing.Point(15, 292);
+            this.btnBitmap.Name = "btnBitmap";
+            this.btnBitmap.Size = new System.Drawing.Size(90, 32);
+            this.btnBitmap.TabIndex = 22;
+            this.btnBitmap.Text = "输出Bitmap";
+            this.btnBitmap.UseVisualStyleBackColor = true;
+            this.btnBitmap.Click += new System.EventHandler(this.btnBitmap_Click);
+            // 
+            // btnLoadRender
+            // 
+            this.btnLoadRender.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.btnLoadRender.Location = new System.Drawing.Point(15, 251);
+            this.btnLoadRender.Name = "btnLoadRender";
+            this.btnLoadRender.Size = new System.Drawing.Size(90, 35);
+            this.btnLoadRender.TabIndex = 21;
+            this.btnLoadRender.Text = "载入渲染";
+            this.btnLoadRender.UseVisualStyleBackColor = true;
+            this.btnLoadRender.Click += new System.EventHandler(this.btnLoadRender_Click);
+            // 
+            // btnSaveRender
+            // 
+            this.btnSaveRender.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.btnSaveRender.Location = new System.Drawing.Point(15, 209);
+            this.btnSaveRender.Name = "btnSaveRender";
+            this.btnSaveRender.Size = new System.Drawing.Size(90, 36);
+            this.btnSaveRender.TabIndex = 20;
+            this.btnSaveRender.Text = "保存渲染";
+            this.btnSaveRender.UseVisualStyleBackColor = true;
+            this.btnSaveRender.Click += new System.EventHandler(this.btnSaveRender_Click);
             // 
             // chkShowLngLat
             // 
             this.chkShowLngLat.AutoSize = true;
+            this.chkShowLngLat.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.chkShowLngLat.Location = new System.Drawing.Point(15, 529);
             this.chkShowLngLat.Name = "chkShowLngLat";
-            this.chkShowLngLat.Size = new System.Drawing.Size(96, 16);
+            this.chkShowLngLat.Size = new System.Drawing.Size(99, 21);
             this.chkShowLngLat.TabIndex = 19;
             this.chkShowLngLat.Text = "显示地理坐标";
             this.chkShowLngLat.UseVisualStyleBackColor = true;
@@ -127,78 +175,37 @@
             // 
             // btnEndEdit
             // 
-            this.btnEndEdit.Location = new System.Drawing.Point(15, 302);
+            this.btnEndEdit.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.btnEndEdit.Location = new System.Drawing.Point(15, 134);
             this.btnEndEdit.Name = "btnEndEdit";
             this.btnEndEdit.Size = new System.Drawing.Size(90, 32);
             this.btnEndEdit.TabIndex = 16;
             this.btnEndEdit.Text = "结束编辑";
             this.btnEndEdit.UseVisualStyleBackColor = true;
-            // 
-            // btnEditPolygon
-            // 
-            this.btnEditPolygon.Location = new System.Drawing.Point(15, 254);
-            this.btnEditPolygon.Name = "btnEditPolygon";
-            this.btnEditPolygon.Size = new System.Drawing.Size(90, 31);
-            this.btnEditPolygon.TabIndex = 15;
-            this.btnEditPolygon.Text = "编辑多边形";
-            this.btnEditPolygon.UseVisualStyleBackColor = true;
-            this.btnEditPolygon.Click += new System.EventHandler(this.btnEditPolygon_Click);
+            this.btnEndEdit.Click += new System.EventHandler(this.btnEndEdit_Click);
             // 
             // btnEndSketch
             // 
-            this.btnEndSketch.Location = new System.Drawing.Point(16, 205);
+            this.btnEndSketch.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.btnEndSketch.Location = new System.Drawing.Point(15, 172);
             this.btnEndSketch.Name = "btnEndSketch";
             this.btnEndSketch.Size = new System.Drawing.Size(90, 31);
             this.btnEndSketch.TabIndex = 14;
-            this.btnEndSketch.Text = "结束描绘";
+            this.btnEndSketch.Text = "结束插入";
             this.btnEndSketch.UseVisualStyleBackColor = true;
-            // 
-            // btnEndPart
-            // 
-            this.btnEndPart.Location = new System.Drawing.Point(15, 157);
-            this.btnEndPart.Name = "btnEndPart";
-            this.btnEndPart.Size = new System.Drawing.Size(90, 31);
-            this.btnEndPart.TabIndex = 13;
-            this.btnEndPart.Text = "结束部分";
-            this.btnEndPart.UseVisualStyleBackColor = true;
-            // 
-            // btnMovePolygon
-            // 
-            this.btnMovePolygon.Location = new System.Drawing.Point(15, 59);
-            this.btnMovePolygon.Name = "btnMovePolygon";
-            this.btnMovePolygon.Size = new System.Drawing.Size(91, 32);
-            this.btnMovePolygon.TabIndex = 12;
-            this.btnMovePolygon.Text = "移动多边形";
-            this.btnMovePolygon.UseVisualStyleBackColor = true;
+            this.btnEndSketch.Click += new System.EventHandler(this.btnEndSketch_Click);
             // 
             // btnLoadLayer
             // 
-            this.btnLoadLayer.Location = new System.Drawing.Point(12, 12);
+            this.btnLoadLayer.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.btnLoadLayer.Location = new System.Drawing.Point(15, 57);
             this.btnLoadLayer.Margin = new System.Windows.Forms.Padding(2);
             this.btnLoadLayer.Name = "btnLoadLayer";
-            this.btnLoadLayer.Size = new System.Drawing.Size(93, 33);
+            this.btnLoadLayer.Size = new System.Drawing.Size(90, 33);
             this.btnLoadLayer.TabIndex = 0;
-            this.btnLoadLayer.Text = "载入图层";
+            this.btnLoadLayer.Text = "载入.shp";
             this.btnLoadLayer.UseVisualStyleBackColor = true;
             this.btnLoadLayer.Click += new System.EventHandler(this.btnLoadLayer_Click);
-            // 
-            // moMap
-            // 
-            this.moMap.BackColor = System.Drawing.Color.White;
-            this.moMap.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.moMap.FlashColor = System.Drawing.Color.Green;
-            this.moMap.Location = new System.Drawing.Point(153, 27);
-            this.moMap.Margin = new System.Windows.Forms.Padding(1);
-            this.moMap.Name = "moMap";
-            this.moMap.SelectionColor = System.Drawing.Color.Cyan;
-            this.moMap.Size = new System.Drawing.Size(801, 556);
-            this.moMap.TabIndex = 3;
-            this.moMap.MapScaleChanged += new MyMapObjects.moMapcontrol.MapScaleChangedHandle(this.moMap_MapScaleChanged);
-            this.moMap.AfterTrackingLayerDraw += new MyMapObjects.moMapcontrol.AfterTrackingLayerDrawHandle(this.moMap_AfterTrackingLayerDraw);
-            this.moMap.MouseClick += new System.Windows.Forms.MouseEventHandler(this.moMap_MouseClick);
-            this.moMap.MouseDown += new System.Windows.Forms.MouseEventHandler(this.moMap_MouseDown);
-            this.moMap.MouseMove += new System.Windows.Forms.MouseEventHandler(this.moMap_MouseMove);
-            this.moMap.MouseUp += new System.Windows.Forms.MouseEventHandler(this.moMap_MouseUp);
             // 
             // menuStrip1
             // 
@@ -207,10 +214,11 @@
             this.toolStripZoomOut,
             this.toolStripPan,
             this.toolStripSelect,
-            this.toolStripIdentify});
+            this.toolStripIdentify,
+            this.tsConditionIndicate});
             this.menuStrip1.Location = new System.Drawing.Point(0, 0);
             this.menuStrip1.Name = "menuStrip1";
-            this.menuStrip1.Size = new System.Drawing.Size(1080, 25);
+            this.menuStrip1.Size = new System.Drawing.Size(1080, 27);
             this.menuStrip1.TabIndex = 5;
             this.menuStrip1.Text = "menuStrip1";
             // 
@@ -218,7 +226,7 @@
             // 
             this.toolStripZoomIn.CheckOnClick = true;
             this.toolStripZoomIn.Name = "toolStripZoomIn";
-            this.toolStripZoomIn.Size = new System.Drawing.Size(44, 21);
+            this.toolStripZoomIn.Size = new System.Drawing.Size(44, 23);
             this.toolStripZoomIn.Text = "放大";
             this.toolStripZoomIn.Click += new System.EventHandler(this.toolStripZoomIn_Click);
             // 
@@ -226,7 +234,7 @@
             // 
             this.toolStripZoomOut.CheckOnClick = true;
             this.toolStripZoomOut.Name = "toolStripZoomOut";
-            this.toolStripZoomOut.Size = new System.Drawing.Size(44, 21);
+            this.toolStripZoomOut.Size = new System.Drawing.Size(44, 23);
             this.toolStripZoomOut.Text = "缩小";
             this.toolStripZoomOut.Click += new System.EventHandler(this.toolStripZoomOut_Click);
             // 
@@ -234,7 +242,7 @@
             // 
             this.toolStripPan.CheckOnClick = true;
             this.toolStripPan.Name = "toolStripPan";
-            this.toolStripPan.Size = new System.Drawing.Size(44, 21);
+            this.toolStripPan.Size = new System.Drawing.Size(44, 23);
             this.toolStripPan.Text = "漫游";
             this.toolStripPan.Click += new System.EventHandler(this.toolStripPan_Click);
             // 
@@ -242,7 +250,7 @@
             // 
             this.toolStripSelect.CheckOnClick = true;
             this.toolStripSelect.Name = "toolStripSelect";
-            this.toolStripSelect.Size = new System.Drawing.Size(44, 21);
+            this.toolStripSelect.Size = new System.Drawing.Size(44, 23);
             this.toolStripSelect.Text = "选择";
             this.toolStripSelect.Click += new System.EventHandler(this.toolStripSelect_Click);
             // 
@@ -250,59 +258,75 @@
             // 
             this.toolStripIdentify.CheckOnClick = true;
             this.toolStripIdentify.Name = "toolStripIdentify";
-            this.toolStripIdentify.Size = new System.Drawing.Size(44, 21);
+            this.toolStripIdentify.Size = new System.Drawing.Size(44, 23);
             this.toolStripIdentify.Text = "查询";
             this.toolStripIdentify.Click += new System.EventHandler(this.toolStripIdentify_Click);
             // 
-            // panelLayerTree
+            // tsConditionIndicate
             // 
-            this.panelLayerTree.Controls.Add(this.label1);
-            this.panelLayerTree.Controls.Add(this.treeViewLayers);
-            this.panelLayerTree.Dock = System.Windows.Forms.DockStyle.Left;
-            this.panelLayerTree.Location = new System.Drawing.Point(0, 25);
-            this.panelLayerTree.Name = "panelLayerTree";
-            this.panelLayerTree.Size = new System.Drawing.Size(149, 558);
-            this.panelLayerTree.TabIndex = 6;
+            this.tsConditionIndicate.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F);
+            this.tsConditionIndicate.Name = "tsConditionIndicate";
+            this.tsConditionIndicate.ReadOnly = true;
+            this.tsConditionIndicate.Size = new System.Drawing.Size(100, 23);
+            // 
+            // label1
+            // 
+            this.label1.AutoSize = true;
+            this.label1.Font = new System.Drawing.Font("隶书", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.label1.Location = new System.Drawing.Point(46, 27);
+            this.label1.Margin = new System.Windows.Forms.Padding(3, 10, 3, 5);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(49, 14);
+            this.label1.TabIndex = 1;
+            this.label1.Text = "图层树";
             // 
             // treeViewLayers
             // 
             this.treeViewLayers.AllowDrop = true;
-            this.treeViewLayers.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.treeViewLayers.Font = new System.Drawing.Font("隶书", 14.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.treeViewLayers.Location = new System.Drawing.Point(0, 34);
+            this.treeViewLayers.Font = new System.Drawing.Font("隶书", 10.5F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
+            this.treeViewLayers.Location = new System.Drawing.Point(0, 46);
             this.treeViewLayers.Name = "treeViewLayers";
-            this.treeViewLayers.Size = new System.Drawing.Size(149, 524);
+            this.treeViewLayers.Size = new System.Drawing.Size(136, 537);
             this.treeViewLayers.TabIndex = 0;
             this.treeViewLayers.ItemDrag += new System.Windows.Forms.ItemDragEventHandler(this.treeViewLayers_ItemDrag);
             this.treeViewLayers.NodeMouseClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.treeViewLayers_NodeMouseClick);
             this.treeViewLayers.DragDrop += new System.Windows.Forms.DragEventHandler(this.treeViewLayers_DragDrop);
             this.treeViewLayers.DragEnter += new System.Windows.Forms.DragEventHandler(this.treeViewLayers_DragEnter);
             // 
-            // label1
+            // moMap
             // 
-            this.label1.AutoSize = true;
-            this.label1.Dock = System.Windows.Forms.DockStyle.Top;
-            this.label1.Font = new System.Drawing.Font("宋体", 14.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.label1.Location = new System.Drawing.Point(0, 0);
-            this.label1.Margin = new System.Windows.Forms.Padding(3, 10, 3, 5);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(85, 19);
-            this.label1.TabIndex = 1;
-            this.label1.Text = "图层树：";
+            this.moMap.BackColor = System.Drawing.Color.White;
+            this.moMap.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.moMap.FlashColor = System.Drawing.Color.Green;
+            this.moMap.Location = new System.Drawing.Point(140, 27);
+            this.moMap.Margin = new System.Windows.Forms.Padding(1);
+            this.moMap.Name = "moMap";
+            this.moMap.SelectionColor = System.Drawing.Color.Cyan;
+            this.moMap.Size = new System.Drawing.Size(814, 556);
+            this.moMap.TabIndex = 3;
+            this.moMap.MapScaleChanged += new MyMapObjects.moMapcontrol.MapScaleChangedHandle(this.moMap_MapScaleChanged);
+            this.moMap.AfterTrackingLayerDraw += new MyMapObjects.moMapcontrol.AfterTrackingLayerDrawHandle(this.moMap_AfterTrackingLayerDraw);
+            this.moMap.MouseClick += new System.Windows.Forms.MouseEventHandler(this.moMap_MouseClick);
+            this.moMap.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.moMap_MouseDoubleClick);
+            this.moMap.MouseDown += new System.Windows.Forms.MouseEventHandler(this.moMap_MouseDown);
+            this.moMap.MouseMove += new System.Windows.Forms.MouseEventHandler(this.moMap_MouseMove);
+            this.moMap.MouseUp += new System.Windows.Forms.MouseEventHandler(this.moMap_MouseUp);
             // 
             // frmMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1080, 605);
+            this.Controls.Add(this.label1);
             this.Controls.Add(this.panel1);
-            this.Controls.Add(this.panelLayerTree);
+            this.Controls.Add(this.treeViewLayers);
             this.Controls.Add(this.moMap);
             this.Controls.Add(this.statusStrip1);
             this.Controls.Add(this.menuStrip1);
+            this.MaximizeBox = false;
             this.Name = "frmMain";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "MyObjectsDemo";
+            this.Text = "ZcpGIS";
             this.Load += new System.EventHandler(this.frmMain_Load);
             this.statusStrip1.ResumeLayout(false);
             this.statusStrip1.PerformLayout();
@@ -310,8 +334,6 @@
             this.panel1.PerformLayout();
             this.menuStrip1.ResumeLayout(false);
             this.menuStrip1.PerformLayout();
-            this.panelLayerTree.ResumeLayout(false);
-            this.panelLayerTree.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -325,22 +347,23 @@
         private MyMapObjects.moMapcontrol moMap;
         private System.Windows.Forms.ToolStripStatusLabel tssCoordinate;
         private System.Windows.Forms.ToolStripStatusLabel tssMapScale;
-        private System.Windows.Forms.Button btnMovePolygon;
-        private System.Windows.Forms.Button btnEndPart;
-        private System.Windows.Forms.Button btnEndEdit;
-        private System.Windows.Forms.Button btnEditPolygon;
         private System.Windows.Forms.Button btnEndSketch;
         private System.Windows.Forms.CheckBox chkShowLngLat;
-        private System.Windows.Forms.Button btnSketchPolygon;
         private System.Windows.Forms.MenuStrip menuStrip1;
         private System.Windows.Forms.ToolStripMenuItem toolStripZoomIn;
         private System.Windows.Forms.ToolStripMenuItem toolStripZoomOut;
         private System.Windows.Forms.ToolStripMenuItem toolStripPan;
         private System.Windows.Forms.ToolStripMenuItem toolStripSelect;
         private System.Windows.Forms.ToolStripMenuItem toolStripIdentify;
-        private System.Windows.Forms.Panel panelLayerTree;
         private System.Windows.Forms.TreeView treeViewLayers;
         private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.Button btnEndEdit;
+        private System.Windows.Forms.Button btnLoadRender;
+        private System.Windows.Forms.Button btnSaveRender;
+        private System.Windows.Forms.Button btnBitmap;
+        private System.Windows.Forms.Button btnNewLayer;
+        private System.Windows.Forms.Button btnLoadZshp;
+        private System.Windows.Forms.ToolStripTextBox tsConditionIndicate;
     }
 }
 

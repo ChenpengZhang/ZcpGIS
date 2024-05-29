@@ -1,10 +1,16 @@
 ﻿using MyMapObjects;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.IO;
 using System.Linq;
+using System.Net;
+using System.Reflection;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Windows.Forms;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
@@ -40,9 +46,12 @@ namespace ZcpGIS
         private bool mIsInSelect = false;
         private bool mIsInIdentify = false;
         private bool mIsInMovingShapes = false;
+        private bool mIsInEdit = false;
         private List<MyMapObjects.moGeometry> mMovingGeometries = new List<MyMapObjects.moGeometry>();
         private MyMapObjects.moGeometry mEditingGeometry;
         private List<MyMapObjects.moPoints> mSketchingShape;
+        private moMapLayer mMapLayer;  // 正在编辑的图层
+        private moPoint mPoint;  // 正在编辑的点
 
         #endregion
 
@@ -115,25 +124,48 @@ namespace ZcpGIS
                 moMap.RedrawMap();
             }
         }
+        private void btnLoadZshp_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog sDialog = new OpenFileDialog();
+            sDialog.Filter = "Zshape文件|*.zshp";
+            string sFileName = "";
+            if (sDialog.ShowDialog() == DialogResult.OK)
+            {
+                sFileName = sDialog.FileName;
+                sDialog.Dispose();
+            }
+            else
+            {
+                sDialog.Dispose();
+                return;
+            }
+            mapLoadLayer(sFileName);
+            
+        }
         private void toolStripZoomIn_Click(object sender, EventArgs e)
         {
             mMapOpStyle = 1;
+            tsConditionIndicate.Text = "当前状态：放大";
         }
         private void toolStripZoomOut_Click(object sender, EventArgs e)
         {
             mMapOpStyle = 2;
+            tsConditionIndicate.Text = "当前状态：缩小";
         }
         private void toolStripPan_Click(object sender, EventArgs e)
         {
             mMapOpStyle = 3;
+            tsConditionIndicate.Text = "当前状态：漫游";
         }
         private void toolStripSelect_Click(object sender, EventArgs e)
         {
             mMapOpStyle = 4;
+            tsConditionIndicate.Text = "当前状态：选择";
         }
         private void toolStripIdentify_Click(object sender, EventArgs e)
         {
             mMapOpStyle = 5;
+            tsConditionIndicate.Text = "当前状态：查询";
         }
         private void btnSimpleRenderer_Click(object sender, EventArgs e)
         {
@@ -265,11 +297,155 @@ namespace ZcpGIS
                     sfrmLineRenderer.Dispose();
                 }
             }
-            
+            else if (sLayer.ShapeType == moGeometryTypeConstant.Point)
+            {
+                frmPointRenderer sfrmPointRenderer = new frmPointRenderer();
+                // 3. 输入数据
+                sfrmPointRenderer.SetData(sLayer);
+                // 4. 显示窗体，并根据对话框结果做相应处理
+                if (sfrmPointRenderer.ShowDialog(this) == DialogResult.OK)
+                {
+                    MyMapObjects.moRenderer sRenderer;
+                    sfrmPointRenderer.GetData(out sRenderer);
+                    // TODO: 还没有返回正确的renderer
+                    sLayer.Renderer = sRenderer;
+                    moMap.RedrawMap();
+                    sfrmPointRenderer.Dispose();
+                }
+                else
+                {
+                    sfrmPointRenderer.Dispose();
+                }
+            }
+        }
+        private void BtnRename_Click(object sender, EventArgs e)
+        {
+            MyMapObjects.moMapLayer sLayer = moMap.Layers.GetItem(treeViewLayers.SelectedNode.Index);
+            boxEdit sBoxEdit = new boxEdit();
+            if (sBoxEdit.ShowDialog(this) == DialogResult.OK)
+            {
+                string name;
+                sBoxEdit.GetData(out name);
+                sLayer.Name = name;
+            }
+            treeViewLayers_Update();
         }
         private void BtnFullExtent_Click(object sender, EventArgs e)
         {
             moMap.FullExtent();
+        }
+        private void BtnSave_Click(object sender, EventArgs e)
+        {
+            MyMapObjects.moMapLayer sLayer = moMap.Layers.GetItem(treeViewLayers.SelectedNode.Index);
+            // 创建一个 FolderBrowserDialog 对象
+            FolderBrowserDialog folderBrowserDialog = new FolderBrowserDialog();
+            // 检查是否有之前保存的路径，如果有则设置为对话框的初始路径
+            if (!string.IsNullOrEmpty(Properties.Settings.Default.LastFolderPath))
+            {
+                folderBrowserDialog.SelectedPath = Properties.Settings.Default.LastFolderPath;
+            }
+            folderBrowserDialog.Description = "选择保存文件的文件夹";
+            DialogResult result = folderBrowserDialog.ShowDialog();
+            if (result == DialogResult.OK)
+            {
+                string selectedFolderPath = folderBrowserDialog.SelectedPath;
+                Properties.Settings.Default.LastFolderPath = selectedFolderPath;
+                Properties.Settings.Default.Save();
+                SaveZshp(selectedFolderPath, sLayer);  // 保存zshp
+                SaveZdbf(selectedFolderPath, sLayer);  // 保存zdbf
+            }
+        }
+        private void btnSaveRender_Click(object sender, EventArgs e)
+        {
+            SaveFileDialog saveFileDialog = new SaveFileDialog();
+            if (!string.IsNullOrEmpty(Properties.Settings.Default.LastFolderPath))
+            {
+                saveFileDialog.FileName = Properties.Settings.Default.LastFolderPath;
+            }
+            saveFileDialog.Filter = "Zmxd Files|*.zmxd"; // 设置保存文件类型过滤器
+            saveFileDialog.Title = "保存渲染文件（请确保渲染文件和图层文件在同一路径）"; // 设置对话框标题
+            saveFileDialog.FileName = "untitled.zmxd"; // 设置默认文件名
+            if (saveFileDialog.ShowDialog() == DialogResult.OK)
+            {
+                string selectedFolderPath = saveFileDialog.FileName;
+                Properties.Settings.Default.LastFolderPath = selectedFolderPath;
+                Properties.Settings.Default.Save();
+                SaveZmxd(selectedFolderPath, moMap.Layers);  // 保存zmxd
+            }
+        }
+        private void btnLoadRender_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog sDialog = new OpenFileDialog();
+            sDialog.Filter = "Zmxd文件|*.zmxd";
+            string sFileName = "";
+            if (sDialog.ShowDialog() == DialogResult.OK)
+            {
+                sFileName = sDialog.FileName;
+                sDialog.Dispose();
+            }
+            else
+            {
+                sDialog.Dispose();
+                return;
+            }
+            string jsonText = File.ReadAllText(sFileName);
+            moMap.Layers.Clear();  // 先清空所有图层再说
+            // 将 JSON 字符串解析为 JObject
+            JObject obj = JObject.Parse(jsonText);
+            // 获取 "Renderers" 键下的对象
+            JArray Layers = (JArray)obj["Layers"];
+            foreach (JValue layer in Layers)
+            {
+                string directoryPath = Path.GetDirectoryName(sFileName);
+                string filePath = directoryPath + Path.DirectorySeparatorChar + (string)layer + ".zshp";
+                mapLoadLayer(filePath);
+            }
+            List<moRenderer> sRenderers = DataIOTools.LoadRendererFromZmxdFile(sFileName, moMap.Layers);
+            Int32 sLayerCount = moMap.Layers.Count;
+            for (Int32 i = 0; i < sLayerCount; ++i)
+            {
+                moMap.Layers.GetItem(i).Renderer = sRenderers[i];
+            }
+            moMap.RedrawMap();
+        }
+        private void BtnInsert_Click(object sender, EventArgs e)
+        {
+            // 目前只支持对多边形的编辑
+            if (moMap.Layers.GetItem(treeViewLayers.SelectedNode.Index).ShapeType == moGeometryTypeConstant.MultiPolygon)
+            {
+                MyMapObjects.moMapLayer sLayer = moMap.Layers.GetItem(treeViewLayers.SelectedNode.Index);
+                mMapLayer = sLayer;
+                mMapOpStyle = 7;
+                tsConditionIndicate.Text = "当前状态：插入";
+            }
+        }
+        private void BtnEdit_Click(object sender, EventArgs e)
+        {
+            // 目前只支持对多边形的编辑
+            if (moMap.Layers.GetItem(treeViewLayers.SelectedNode.Index).ShapeType == moGeometryTypeConstant.MultiPolygon)
+            {
+                MyMapObjects.moMapLayer sLayer = moMap.Layers.GetItem(treeViewLayers.SelectedNode.Index);
+                mMapLayer = sLayer;
+                mMapOpStyle = 8;
+                tsConditionIndicate.Text = "当前状态：编辑";
+            }
+        }
+        private void BtnShowAttributes_Click(object sender, EventArgs e)
+        {
+            MyMapObjects.moMapLayer sLayer = moMap.Layers.GetItem(treeViewLayers.SelectedNode.Index);
+            frmLayerAttributes sfrmLayerAttributes = IsLayerAttributesFormOpened(sLayer);
+            if (sfrmLayerAttributes == null)
+            {
+                // 没有打开
+                sfrmLayerAttributes = new frmLayerAttributes();
+                sfrmLayerAttributes.SetData(sLayer);
+                sfrmLayerAttributes.Show(this);
+            }
+            else
+            {
+                // 已经打开
+                sfrmLayerAttributes.Activate();
+            }
         }
         private void BtnDelete_Click(object sender, EventArgs e)
         {
@@ -277,9 +453,67 @@ namespace ZcpGIS
             treeViewLayers_Update();
             moMap.RedrawMap();
         }
-        private void btnEditPolygon_Click(object sender, EventArgs e)
+        private void btnNewLayer_Click(object sender, EventArgs e)
         {
-
+            MyMapObjects.moFields sFields = new moFields();
+            MyMapObjects.moField sField = new moField("ID", moValueTypeConstant.dInt32);
+            MyMapObjects.moMapLayer sLayer = new moMapLayer("新建图层", moGeometryTypeConstant.MultiPolygon, sFields);
+            sFields.Append(sField);
+            moMap.Layers.Add(sLayer);
+            treeViewLayers_Update();
+        }
+        private void btnEndSketch_Click(object sender, EventArgs e)
+        {
+            //检查是否能结束
+            if (mSketchingShape.Last().Count >= 1 && mSketchingShape.Last().Count < 3) return;
+            //如果有一个部件的点数为0，则删除最后一个
+            if (mSketchingShape.Last().Count == 0)
+            {
+                mSketchingShape.Remove(mSketchingShape.Last());
+            }
+            if (mSketchingShape.Count > 0)
+            {
+                MyMapObjects.moMapLayer sLayer = mMapLayer;
+                if (sLayer != null)
+                {
+                    //定义多多边形
+                    MyMapObjects.moMultiPolygon sMultiPolygon = new MyMapObjects.moMultiPolygon();
+                    sMultiPolygon.Parts.AddRange(mSketchingShape.ToArray());
+                    sMultiPolygon.UpdateExtent();
+                    //新建要素
+                    MyMapObjects.moFeature sFeature = sLayer.CreateNewFeature();
+                    sFeature.Geometry = sMultiPolygon;
+                    sLayer.Features.Add(sFeature);
+                    sLayer.UpdateExtent();
+                }
+            }
+            //初始化描绘图形
+            InitializeSketchingShape();
+            tsConditionIndicate.Clear();
+            moMap.RedrawMap();
+        }
+        private void btnEndEdit_Click(object sender, EventArgs e)
+        {
+            mEditingGeometry = null;
+            tsConditionIndicate.Clear();
+            moMap.RedrawMap();
+        }
+        private void btnBitmap_Click(object sender, EventArgs e)
+        {
+            SaveFileDialog saveFileDialog = new SaveFileDialog();
+            saveFileDialog.Filter = "PNG Files|*.png|JPEG Files|*.jpg|All Files|*.*"; // 设置保存文件类型过滤器
+            saveFileDialog.Title = "Save an Image File"; // 设置对话框标题
+            saveFileDialog.FileName = "image.png"; // 设置默认文件名
+            if (saveFileDialog.ShowDialog() == DialogResult.OK)
+            {
+                string filePath = saveFileDialog.FileName;
+                // 创建一个Bitmap对象，大小与窗口相同
+                Bitmap bitmap = new Bitmap(moMap.Width, moMap.Height);
+                // 将窗口内容绘制到Bitmap上
+                moMap.DrawToBitmap(bitmap, new Rectangle(0, 0, moMap.Width, moMap.Height));
+                // 保存Bitmap到本地文件
+                bitmap.Save(filePath, System.Drawing.Imaging.ImageFormat.Png);
+            }
         }
 
         #endregion
@@ -335,6 +569,17 @@ namespace ZcpGIS
 
             }
         }
+        private void moMap_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            if (mMapOpStyle == 7)
+            {
+                //判断至少有三个点
+                if (mSketchingShape.Last().Count < 3) return;
+                MyMapObjects.moPoints sPoints = new MyMapObjects.moPoints();
+                mSketchingShape.Add(sPoints);
+                moMap.RedrawTrackingShapes();
+            }
+        }
 
         private void moMap_MouseDown(object sender, MouseEventArgs e)
         {
@@ -368,7 +613,7 @@ namespace ZcpGIS
             }
             else if (mMapOpStyle == 8)
             {
-
+                OnEdit_MouseDown(e);
             }
         }
 
@@ -380,7 +625,6 @@ namespace ZcpGIS
                 mIsInZoomIn = true;
             }
         }
-
 
         private void OnPan_MouseDown(MouseEventArgs e)
         {
@@ -427,6 +671,34 @@ namespace ZcpGIS
             }
             mStartMouseLocation = e.Location;
             mIsInMovingShapes = true;
+        }
+
+        private void OnEdit_MouseDown(MouseEventArgs e)
+        {
+            Int32 sFeatureCount = mMapLayer.Features.Count;
+            for (Int32 i = 0; i < sFeatureCount; ++i)
+            {
+                moFeature sFeature = mMapLayer.Features.GetItem(i);
+                moMultiPolygon sMultiPolygon = (moMultiPolygon)sFeature.Geometry;
+                Int32 sPartCount = sMultiPolygon.Parts.Count;
+                for (Int32 j = 0; j <= sPartCount - 1; j++)
+                {
+                    MyMapObjects.moPoints sPoints = sMultiPolygon.Parts.GetItem(j);
+                    Int32 sPointCount = sPoints.Count;
+                    for (Int32 k = 0; k <= sPointCount - 1; k++)
+                    {
+                        MyMapObjects.moPoint sPoint = sPoints.GetItem(k);
+                        MyMapObjects.moPoint sMousePoint = moMap.ToMapPoint(e.Location.X, e.Location.Y);
+                        double distance = getDistance(sPoint.X, sPoint.Y, sMousePoint.X, sMousePoint.Y);
+                        if(distance < moMap.MapScale * 0.005)  // 也就是屏幕上的0.5cm
+                        {
+                            mIsInEdit = true;
+                            mPoint = sPoint;
+                            return;
+                        }
+                    }
+                }
+            }
         }
 
         private void moMap_MouseMove(object sender, MouseEventArgs e)
@@ -483,7 +755,11 @@ namespace ZcpGIS
             }
             else if (mMapOpStyle == 8)
             {
-
+                if (!mIsInEdit) return;
+                moMap.RedrawMap();
+                moPoint sPoint = moMap.ToMapPoint(e.X, e.Y);
+                mPoint.X = sPoint.X;
+                mPoint.Y = sPoint.Y;
             }
         }
 
@@ -565,7 +841,7 @@ namespace ZcpGIS
             }
             else if (mMapOpStyle == 8)
             {
-
+                OnEdit_MouseUp(e);
             }
         }
 
@@ -660,6 +936,13 @@ namespace ZcpGIS
             moMap.RedrawMap();
         }
 
+        private void OnEdit_MouseUp(MouseEventArgs e)
+        {
+            if (!mIsInEdit) return;
+            mIsInEdit = false;
+            moMap.RedrawMap();
+        }
+
         private void MoMap_MouseWheel(object sender, MouseEventArgs e)
         {
             //计算地图中心的地图坐标
@@ -743,16 +1026,31 @@ namespace ZcpGIS
             // 添加菜单项
             ToolStripMenuItem btnFullExtent = new ToolStripMenuItem("全范围显示");
             ToolStripMenuItem btnModifyRenderer = new ToolStripMenuItem("调整渲染");
+            ToolStripMenuItem btnRename = new ToolStripMenuItem("重命名图层");
             ToolStripMenuItem btnShowLabel = new ToolStripMenuItem("添加注记");
+            ToolStripMenuItem btnShowAttributes = new ToolStripMenuItem("查看属性表");
+            ToolStripMenuItem btnEdit = new ToolStripMenuItem("编辑要素");
+            ToolStripMenuItem btnInsert = new ToolStripMenuItem("插入要素");
             ToolStripMenuItem btnDelete = new ToolStripMenuItem("删除图层");
+            ToolStripMenuItem btnSave = new ToolStripMenuItem("保存为.zshp...");
             btnFullExtent.Click += BtnFullExtent_Click;
             btnModifyRenderer.Click += BtnModifyRenderer_Click;
+            btnRename.Click += BtnRename_Click;
             btnShowLabel.Click += BtnShowLabel_Click;
+            btnShowAttributes.Click += BtnShowAttributes_Click;
+            btnEdit.Click += BtnEdit_Click;
+            btnInsert.Click += BtnInsert_Click;
             btnDelete.Click += BtnDelete_Click;
+            btnSave.Click += BtnSave_Click;
             contextMenuStrip.Items.Add(btnFullExtent);
             contextMenuStrip.Items.Add(btnModifyRenderer);
+            contextMenuStrip.Items.Add(btnRename);
             contextMenuStrip.Items.Add(btnShowLabel);
+            contextMenuStrip.Items.Add(btnShowAttributes);
+            contextMenuStrip.Items.Add(btnEdit);
+            contextMenuStrip.Items.Add(btnInsert);
             contextMenuStrip.Items.Add(btnDelete);
+            contextMenuStrip.Items.Add(btnSave);
 
             // 将右键菜单关联到 TreeView 控件
             treeViewLayers.ContextMenuStrip = contextMenuStrip;
@@ -760,8 +1058,6 @@ namespace ZcpGIS
             // 默认隐藏右键菜单
             treeViewLayers.ContextMenuStrip.Visible = false;
         }
-
-
 
 
 
@@ -925,7 +1221,217 @@ namespace ZcpGIS
             }
         }
 
+        private double getDistance(double x1, double y1, double x2, double y2)
+        {
+            double deltaX = x1 - x2;
+            double deltaY = y1 - y2;
+            double distance = Math.Sqrt(Math.Pow(deltaX, 2) + Math.Pow(deltaY, 2));
+            return distance;
+        }
+
+        private void SaveZshp(string selectedFolderPath, moMapLayer sLayer)
+        {
+            if (sLayer.ShapeType == moGeometryTypeConstant.Point)
+            {
+                List<Dictionary<string, double>> sPointsList = new List<Dictionary<string, double>>();
+                Int32 sFeatureCount = sLayer.Features.Count;
+                for (Int32 i = 0; i < sFeatureCount; ++i)
+                {
+                    moFeature sFeature = sLayer.Features.GetItem(i);
+                    moPoint sPoint = (moPoint)sFeature.Geometry;
+                    Dictionary<string, double> sPointDict = new Dictionary<string, double>();
+                    sPointDict.Add("X", sPoint.X);
+                    sPointDict.Add("Y", sPoint.Y);
+                    sPointsList.Add(sPointDict);
+                }
+                var customData = new
+                {
+                    FileType = "zshp",
+                    ShapeType = sLayer.ShapeType,
+                    Shapes = sPointsList
+                };
+                // 将对象转换为JSON字符串
+                string json = JsonConvert.SerializeObject(customData, Formatting.Indented);
+                string sFileName = sLayer.Name + ".zshp";
+                // 写入JSON字符串到文件
+                File.WriteAllText(selectedFolderPath + "/" + sFileName, json);
+            }
+            else if (sLayer.ShapeType == moGeometryTypeConstant.MultiPolyline)
+            {
+                // 由于多线的原因嵌套很多很复杂，注意别搞混了
+                List<List<List<Dictionary<string, double>>>> sLinesList = new List<List<List<Dictionary<string, double>>>>();  // 多个多线对象
+                Int32 sFeatureCount = sLayer.Features.Count;
+                for (Int32 i = 0; i < sFeatureCount; ++i)
+                {
+                    List<List<Dictionary<string, double>>> sPartsList = new List<List<Dictionary<string, double>>>();  // 一个多线对象
+                    moFeature sFeature = sLayer.Features.GetItem(i);
+                    moMultiPolyline sMultiPolyline = (moMultiPolyline)sFeature.Geometry;
+                    Int32 sPartCount = sMultiPolyline.Parts.Count;
+                    for (Int32 j = 0; j <= sPartCount - 1; j++)
+                    {
+                        List<Dictionary<string, double>> sPointsList = new List<Dictionary<string, double>>();  // 一个多线的一个Part（就是一条完整的线）对象
+                        MyMapObjects.moPoints sPoints = sMultiPolyline.Parts.GetItem(j);
+                        Int32 sPointCount = sPoints.Count;
+                        for (Int32 k = 0; k <= sPointCount - 1; k++)
+                        {
+                            MyMapObjects.moPoint sPoint = sPoints.GetItem(k);
+                            Dictionary<string, double> sPointDict = new Dictionary<string, double>();  // 单个点对象
+                            sPointDict.Add("X", sPoint.X);
+                            sPointDict.Add("Y", sPoint.Y);
+                            sPointsList.Add(sPointDict);  // 加入单个点
+                        }
+                        sPartsList.Add(sPointsList);  // 加入一个Part
+                    }
+                    sLinesList.Add(sPartsList);  // 加入一个多线
+                }
+                var customData = new
+                {
+                    FileType = "zshp",
+                    ShapeType = sLayer.ShapeType,
+                    Shapes = sLinesList
+                };
+                // 将对象转换为JSON字符串
+                string json = JsonConvert.SerializeObject(customData, Formatting.Indented);
+                string sFileName = sLayer.Name + ".zshp";
+                // 写入JSON字符串到文件
+                File.WriteAllText(selectedFolderPath + "/" + sFileName, json);
+            }
+            else if (sLayer.ShapeType == moGeometryTypeConstant.MultiPolygon)
+            {
+                // 由于多边形的原因嵌套很多很复杂，注意别搞混了
+                List<List<List<Dictionary<string, double>>>> sPolygonsList = new List<List<List<Dictionary<string, double>>>>();  // 多个多边形对象
+                Int32 sFeatureCount = sLayer.Features.Count;
+                for (Int32 i = 0; i < sFeatureCount; ++i)
+                {
+                    List<List<Dictionary<string, double>>> sPartsList = new List<List<Dictionary<string, double>>>();  // 一个多边形对象
+                    moFeature sFeature = sLayer.Features.GetItem(i);
+                    moMultiPolygon sMultiPolygon = (moMultiPolygon)sFeature.Geometry;
+                    Int32 sPartCount = sMultiPolygon.Parts.Count;
+                    for (Int32 j = 0; j <= sPartCount - 1; j++)
+                    {
+                        List<Dictionary<string, double>> sPointsList = new List<Dictionary<string, double>>();  // 一个多边形的一个Part对象
+                        MyMapObjects.moPoints sPoints = sMultiPolygon.Parts.GetItem(j);
+                        Int32 sPointCount = sPoints.Count;
+                        for (Int32 k = 0; k <= sPointCount - 1; k++)
+                        {
+                            MyMapObjects.moPoint sPoint = sPoints.GetItem(k);
+                            Dictionary<string, double> sPointDict = new Dictionary<string, double>();  // 单个点对象
+                            sPointDict.Add("X", sPoint.X);
+                            sPointDict.Add("Y", sPoint.Y);
+                            sPointsList.Add(sPointDict);  // 加入单个点
+                        }
+                        sPartsList.Add(sPointsList);  // 加入一个Part
+                    }
+                    sPolygonsList.Add(sPartsList);  // 加入一个多边形
+                }
+                var customData = new
+                {
+                    FileType = "zshp",
+                    ShapeType = sLayer.ShapeType,
+                    Shapes = sPolygonsList
+                };
+                // 将对象转换为JSON字符串
+                string json = JsonConvert.SerializeObject(customData, Formatting.Indented);
+                string sFileName = sLayer.Name + ".zshp";
+                // 写入JSON字符串到文件
+                File.WriteAllText(selectedFolderPath + "/" + sFileName, json);
+            }
+        }
+
+        private void SaveZdbf(string selectedFolderPath, moMapLayer sLayer)
+        {
+            Int32 sFieldCount = sLayer.AttributeFields.Count;
+            List<moValueTypeConstant> sFieldTypes = new List<moValueTypeConstant>();
+            List<string> sFieldNames = new List<string>();
+            for (Int32 i = 0; i < sFieldCount; ++i)
+            {
+                moField sField = sLayer.AttributeFields.GetItem(i);
+                sFieldTypes.Add(sField.ValueType);
+                sFieldNames.Add(sField.Name);
+            }
+            Int32 sFeatureCount = sLayer.Features.Count;
+            List<List<string>> sAttributes = new List<List<string>>();  // 全部属性，包括行和列
+            for (Int32 i = 0; i < sFeatureCount; ++i)
+            {
+                moFeature sFeature = sLayer.Features.GetItem(i);
+                List<string> sRow = new List<string>();  // 一行的所有属性，已转化为字符串
+                for (Int32 j = 0; j < sFieldCount; ++j)
+                {
+                    object sAttribute = sFeature.Attributes.GetItem(j);
+                    string sAttributeString = sAttribute.ToString();
+                    sRow.Add(sAttributeString);
+                }
+                sAttributes.Add(sRow);
+            }
+            var customData = new
+            {
+                FileType = "zdbf",
+                ShapeType = sLayer.ShapeType,
+                FieldTypes = sFieldTypes,
+                FieldNames = sFieldNames,
+                Attributes = sAttributes
+            };
+            // 将对象转换为JSON字符串
+            string json = JsonConvert.SerializeObject(customData, Formatting.Indented);
+            string sFileName = sLayer.Name + ".zdbf";
+            // 写入JSON字符串到文件
+            File.WriteAllText(selectedFolderPath + "/" + sFileName, json);
+        }
+
+        private void SaveZmxd(string selectedFolderPath, moLayers sLayers)
+        {
+
+            Int32 sLayerCount = sLayers.Count;
+            List<string> sLayerNames = new List<string>();
+            // List<Dictionary<string, Int32>> sRenderers = new List<Dictionary<string, Int32>>();
+            List<moRenderer> sRenderers = new List<moRenderer>();
+            for (Int32 i = 0; i < sLayerCount; ++i)
+            {
+                moMapLayer sLayer = sLayers.GetItem(i);
+                sLayerNames.Add(sLayer.Name);
+                moRenderer layerRenderer = sLayer.Renderer;
+                sRenderers.Add(layerRenderer);
+            }
+            var customData = new
+            {
+                FileType = "zmxd",
+                Layers = sLayerNames,
+                Renderers = sRenderers
+            };
+            // 将对象转换为JSON字符串
+            string json = JsonConvert.SerializeObject(customData, Formatting.Indented);
+            string sFileName = "mycustommap.zmxd";
+            // 写入JSON字符串到文件
+            File.WriteAllText(selectedFolderPath, json);
+        }
+
+        private void mapLoadLayer(string sFileName)
+        {
+            MyMapObjects.moMapLayer sLayer;
+            try
+            {
+                sLayer = DataIOTools.LoadLayerFromZshpFile(sFileName);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+                return;
+            }
+            moMap.Layers.Add(sLayer);
+            treeViewLayers_Update();
+            if (moMap.Layers.Count == 1)
+            {
+                moMap.FullExtent();
+            }
+            else
+            {
+                moMap.RedrawMap();
+            }
+        }
+
+
         #endregion
 
+        
     }
 }

@@ -1,0 +1,129 @@
+{
+  "FileType": "zmxd",
+  "Layers": [
+    "主要铁路",
+    "省会城市",
+    "国界线",
+    "省级行政区"
+  ],
+  "Renderers": [
+    {
+      "RendererType": 0,
+      "Symbol": {
+        "SymbolType": 1,
+        "Label": "",
+        "Visible": true,
+        "Style": 1,
+        "Color": "Lime",
+        "Size": 0.35
+      }
+    },
+    {
+      "RendererType": 0,
+      "Symbol": {
+        "SymbolType": 0,
+        "Label": "",
+        "Visible": true,
+        "Style": 6,
+        "Color": "Yellow",
+        "Size": 3.0
+      }
+    },
+    {
+      "RendererType": 0,
+      "Symbol": {
+        "SymbolType": 1,
+        "Label": "",
+        "Visible": true,
+        "Style": 0,
+        "Color": "182, 208, 252",
+        "Size": 0.35
+      }
+    },
+    {
+      "RendererType": 2,
+      "Field": "Z120803",
+      "BreakCount": 5,
+      "DefaultSymbol": null,
+      "BreakValues": [
+        44.1,
+        88.2,
+        132.3,
+        176.4,
+        220.5
+      ],
+      "Symbols": [
+        {
+          "SymbolType": 2,
+          "Label": "",
+          "Visible": true,
+          "Color": "Maroon",
+          "Outline": {
+            "SymbolType": 1,
+            "Label": "",
+            "Visible": true,
+            "Style": 0,
+            "Color": "Maroon",
+            "Size": 0.35
+          }
+        },
+        {
+          "SymbolType": 2,
+          "Label": "",
+          "Visible": true,
+          "Color": "153, 30, 30",
+          "Outline": {
+            "SymbolType": 1,
+            "Label": "",
+            "Visible": true,
+            "Style": 0,
+            "Color": "'153, 30, 30'",
+            "Size": 0.35
+          }
+        },
+        {
+          "SymbolType": 2,
+          "Label": "",
+          "Visible": true,
+          "Color": "178, 71, 71",
+          "Outline": {
+            "SymbolType": 1,
+            "Label": "",
+            "Visible": true,
+            "Style": 0,
+            "Color": "'178, 71, 71'",
+            "Size": 0.35
+          }
+        },
+        {
+          "SymbolType": 2,
+          "Label": "",
+          "Visible": true,
+          "Color": "204, 122, 122",
+          "Outline": {
+            "SymbolType": 1,
+            "Label": "",
+            "Visible": true,
+            "Style": 0,
+            "Color": "'204, 122, 122'",
+            "Size": 0.35
+          }
+        },
+        {
+          "SymbolType": 2,
+          "Label": "",
+          "Visible": true,
+          "Color": "255, 192, 192",
+          "Outline": {
+            "SymbolType": 1,
+            "Label": "",
+            "Visible": true,
+            "Style": 0,
+            "Color": "'255, 192, 192'",
+            "Size": 0.35
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,14 +1,135 @@
-﻿using System;
+﻿using MyMapObjects;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Xml.Serialization;
+using System.Drawing;
 
 namespace ZcpGIS
 {
     internal class DataIOTools
     {
         #region 程序集方法
+        internal static MyMapObjects.moMapLayer LoadLayerFromZshpFile(string zshpFileName)
+        {
+            // 1 读取文件
+            string sBodyFileName = Path.GetFileNameWithoutExtension(zshpFileName);//不含路径和扩展名
+            string sDirectoryName = Path.GetDirectoryName(zshpFileName); //目录名
+            string zdbfFileName = sDirectoryName + Path.DirectorySeparatorChar + sBodyFileName + ".zdbf";
+
+            // 2 将 JSON 文本解析为 JObject 对象
+            string jsonText = File.ReadAllText(zshpFileName);
+            JObject jsonObj = JObject.Parse(jsonText);
+
+            // 3 检查读取格式
+            if ((string)jsonObj["FileType"] != "zshp")
+            {
+                throw new Exception("请使用正确的zshp格式文件！");
+            }
+
+            // 4 确定图形的类型
+            MyMapObjects.moGeometryTypeConstant sShapeType;
+            if ((string)jsonObj["ShapeType"] == "1")
+            {
+                sShapeType = MyMapObjects.moGeometryTypeConstant.MultiPolyline;
+            }
+            else if ((string)jsonObj["ShapeType"] == "2")
+            {
+                sShapeType = MyMapObjects.moGeometryTypeConstant.MultiPolygon;
+            }
+            else if ((string)jsonObj["ShapeType"] == "0")
+            {
+                sShapeType = MyMapObjects.moGeometryTypeConstant.Point;
+            }
+            else
+            {
+                throw new Exception("不合法的zshp对象类型，请检查输入！");
+            }
+
+            // 5 获得属性表数据
+            List<MyMapObjects.moAttributes> sAttributesList;
+            MyMapObjects.moFields sFields;
+            ReadzdbfFile(zdbfFileName, out sFields, out sAttributesList);
+
+            // 6 添加几何信息
+            List<MyMapObjects.moGeometry> sGeometries = new List<MyMapObjects.moGeometry>();  // 新建几何类
+            // 赋值几何类
+            if (sShapeType == MyMapObjects.moGeometryTypeConstant.Point)
+            {
+                JArray mPoints = (JArray)jsonObj["Shapes"];
+                foreach (JObject mPoint in mPoints)
+                {
+                    double x = (double)mPoint["X"];
+                    double y = (double)mPoint["Y"];
+                    MyMapObjects.moPoint sPoint = new MyMapObjects.moPoint(x, y);  //新建点图形
+                    sGeometries.Add(sPoint);
+                }
+            }
+            else if (sShapeType == MyMapObjects.moGeometryTypeConstant.MultiPolyline)
+            {
+                JArray mMultiPolylines = (JArray)jsonObj["Shapes"];
+                foreach (JArray mPolylines in mMultiPolylines)
+                {
+                    moParts sParts = new moParts();
+                    foreach (JArray mPart in mPolylines)
+                    {
+                        moPoints sPoints = new moPoints();
+                        foreach (JObject mPoint in mPart)
+                        {
+                            double x = (double)mPoint["X"];
+                            double y = (double)mPoint["Y"];
+                            MyMapObjects.moPoint sPoint = new MyMapObjects.moPoint(x, y);  //新建点图形
+                            sPoints.Add(sPoint);
+                        }
+                        sParts.Add(sPoints);
+                    }
+                    moMultiPolyline sMultiPolyline = new moMultiPolyline(sParts);
+                    sMultiPolyline.UpdateExtent();
+                    sGeometries.Add(sMultiPolyline);
+                }
+            }
+            else if (sShapeType == MyMapObjects.moGeometryTypeConstant.MultiPolygon)
+            {
+                JArray mMultiPolygons = (JArray)jsonObj["Shapes"];
+                foreach (JArray mPolygons in mMultiPolygons)
+                {
+                    moParts sParts = new moParts();
+                    foreach (JArray mPart in mPolygons)
+                    {
+                        moPoints sPoints = new moPoints();
+                        foreach (JObject mPoint in mPart)
+                        {
+                            double x = (double)mPoint["X"];
+                            double y = (double)mPoint["Y"];
+                            MyMapObjects.moPoint sPoint = new MyMapObjects.moPoint(x, y);  //新建点图形
+                            sPoints.Add(sPoint);
+                        }
+                        sParts.Add(sPoints);
+                    }
+                    moMultiPolygon sMultiPolygon = new moMultiPolygon(sParts);
+                    sMultiPolygon.UpdateExtent();
+                    sGeometries.Add(sMultiPolygon);
+                }
+            }
+            MyMapObjects.moFeatures sFeatures = new MyMapObjects.moFeatures();  // 新建多要素类
+            Int32 sFeatureCount = sGeometries.Count;
+            for (Int32 i = 0; i <= sFeatureCount - 1; i++)  // 将要素一个一个加入到多要素类中
+            {
+                MyMapObjects.moFeature sFeature = new MyMapObjects.moFeature
+                    (sShapeType, sGeometries[i], sAttributesList[i]);
+                sFeatures.Add(sFeature);
+            }
+            string sLayerName = sBodyFileName;
+            MyMapObjects.moMapLayer sMapLayer = new MyMapObjects.moMapLayer(sLayerName, sShapeType, sFields);
+            sMapLayer.Features = sFeatures;
+            sMapLayer.UpdateExtent();
+            return sMapLayer;
+        }
 
         internal static MyMapObjects.moMapLayer LoadMapLayerFromShapeFile(string shapeFileName)
         {
@@ -73,6 +194,388 @@ namespace ZcpGIS
             sMapLayer.Features = sFeatures;
             sMapLayer.UpdateExtent();
             return sMapLayer;
+        }
+
+        internal static List<MyMapObjects.moRenderer> LoadRendererFromZmxdFile(string zmxdFileName, moLayers sLayers)
+        {
+            
+            string jsonText = File.ReadAllText(zmxdFileName);
+            // 将 JSON 字符串解析为 JObject
+            JObject obj = JObject.Parse(jsonText);
+
+            List<moRenderer> sRenderers = new List<moRenderer>();
+            // 获取 "Renderers" 键下的对象
+            JArray layers = (JArray)obj["Layers"];
+            JArray renderers = (JArray)obj["Renderers"];
+            Int32 sLayerCount = layers.Count;
+            for(int i = 0; i < sLayerCount; ++i)
+            {
+                JToken jRenderer = renderers[i];  // 保存的渲染对象
+                moMapLayer sLayer = sLayers.GetItem(i);
+                if (sLayer.ShapeType == moGeometryTypeConstant.Point)  // 点类型的图层
+                {
+                    if ((string)jRenderer["RendererType"] == "0")  // 简单渲染
+                    {
+                        moSimpleRenderer sRenderer = new moSimpleRenderer();
+                        JToken jSymbol = jRenderer["Symbol"];
+                        moSimpleMarkerSymbol sSymbol = new moSimpleMarkerSymbol();
+                        sSymbol.Label = (string)jSymbol["Label"];
+                        sSymbol.Style = (moSimpleMarkerSymbolStyleConstant)jSymbol["Style"].Value<Int32>();
+                        string colorString = (string)jSymbol["Color"];
+                        Color color;
+                        if (colorString.Contains(","))
+                        {
+                            // 如果颜色字符串包含逗号，则按RGB模式处理
+                            string[] colorParts = colorString.Split(',');
+                            int r = int.Parse(colorParts[0]);
+                            int g = int.Parse(colorParts[1]);
+                            int b = int.Parse(colorParts[2]);
+                            color = Color.FromArgb(r, g, b);
+                        }
+                        else
+                        {
+                            // 否则尝试按名称转换
+                            color = Color.FromName(colorString);
+                        }
+                        sSymbol.Color = color;
+                        sRenderer.Symbol = sSymbol;
+                        sRenderers.Add(sRenderer);
+                    }
+                    else if ((string)jRenderer["RendererType"] == "1")  // 唯一值渲染
+                    {
+                        moUniqueValueRenderer sRenderer = new moUniqueValueRenderer();
+                        sRenderer.Field = (string)jRenderer["Field"];
+                        sRenderer.Values = jRenderer["Values"].Select(jv => (string)jv).ToList();
+                        List<moSymbol> sSymbols = new List<moSymbol>();
+                        foreach (JToken jSymbol in jRenderer["Symbols"])
+                        {
+                            moSimpleMarkerSymbol sSymbol = new moSimpleMarkerSymbol();
+                            sSymbol.Label = (string)jSymbol["Label"];
+                            sSymbol.Style = (moSimpleMarkerSymbolStyleConstant)jSymbol["Style"].Value<Int32>();
+                            string colorString = (string)jSymbol["Color"];
+                            Color color;
+                            if (colorString.Contains(","))
+                            {
+                                // 如果颜色字符串包含逗号，则按RGB模式处理
+                                string[] colorParts = colorString.Split(',');
+                                int r = int.Parse(colorParts[0]);
+                                int g = int.Parse(colorParts[1]);
+                                int b = int.Parse(colorParts[2]);
+                                color = Color.FromArgb(r, g, b);
+                            }
+                            else
+                            {
+                                // 否则尝试按名称转换
+                                color = Color.FromName(colorString);
+                            }
+                            sSymbols.Add(sSymbol);
+                        }
+                        sRenderer.Symbols = sSymbols;
+                        sRenderers.Add(sRenderer);
+                    }
+                    else if ((string)jRenderer["RendererType"] == "2")  // 分级渲染
+                    {
+                        moClassBreaksRenderer sRenderer = new moClassBreaksRenderer();
+                        sRenderer.Field = (string)jRenderer["Field"];
+                        sRenderer.BreakValues = jRenderer["BreakValues"].Select(jv => (double)jv).ToList();
+                        List<moSymbol> sSymbols = new List<moSymbol>();
+                        foreach (JToken jSymbol in jRenderer["Symbols"])
+                        {
+                            moSimpleMarkerSymbol sSymbol = new moSimpleMarkerSymbol();
+                            sSymbol.Label = (string)jSymbol["Label"];
+                            sSymbol.Style = (moSimpleMarkerSymbolStyleConstant)jSymbol["Style"].Value<Int32>();
+                            string colorString = (string)jSymbol["Color"];
+                            Color color;
+                            if (colorString.Contains(","))
+                            {
+                                // 如果颜色字符串包含逗号，则按RGB模式处理
+                                string[] colorParts = colorString.Split(',');
+                                int r = int.Parse(colorParts[0]);
+                                int g = int.Parse(colorParts[1]);
+                                int b = int.Parse(colorParts[2]);
+                                color = Color.FromArgb(r, g, b);
+                            }
+                            else
+                            {
+                                // 否则尝试按名称转换
+                                color = Color.FromName(colorString);
+                            }
+                            sSymbols.Add(sSymbol);
+                        }
+                        sRenderer.Symbols = sSymbols;
+                        sRenderers.Add(sRenderer);
+                    }
+                }
+                else if (sLayer.ShapeType == moGeometryTypeConstant.MultiPolyline)  // 点类型的图层
+                {
+                    if ((string)jRenderer["RendererType"] == "0")  // 简单渲染
+                    {
+                        moSimpleRenderer sRenderer = new moSimpleRenderer();
+                        JToken jSymbol = jRenderer["Symbol"];
+                        moSimpleLineSymbol sSymbol = new moSimpleLineSymbol();
+                        sSymbol.Label = (string)jSymbol["Label"];
+                        sSymbol.Style = (moSimpleLineSymbolStyleConstant)jSymbol["Style"].Value<Int32>();
+                        string colorString = (string)jSymbol["Color"];
+                        Color color;
+                        if (colorString.Contains(","))
+                        {
+                            // 如果颜色字符串包含逗号，则按RGB模式处理
+                            string[] colorParts = colorString.Split(',');
+                            int r = int.Parse(colorParts[0]);
+                            int g = int.Parse(colorParts[1]);
+                            int b = int.Parse(colorParts[2]);
+                            color = Color.FromArgb(r, g, b);
+                        }
+                        else
+                        {
+                            // 否则尝试按名称转换
+                            color = Color.FromName(colorString);
+                        }
+                        sSymbol.Color = color;
+                        sRenderer.Symbol = sSymbol;
+                        sRenderers.Add(sRenderer);
+                    }
+                    else if ((string)jRenderer["RendererType"] == "1")  // 唯一值渲染
+                    {
+                        moUniqueValueRenderer sRenderer = new moUniqueValueRenderer();
+                        sRenderer.Field = (string)jRenderer["Field"];
+                        sRenderer.Values = jRenderer["Values"].Select(jv => (string)jv).ToList();
+                        List<moSymbol> sSymbols = new List<moSymbol>();
+                        foreach (JToken jSymbol in jRenderer["Symbols"])
+                        {
+                            moSimpleLineSymbol sSymbol = new moSimpleLineSymbol();
+                            sSymbol.Label = (string)jSymbol["Label"];
+                            sSymbol.Style = (moSimpleLineSymbolStyleConstant)jSymbol["Style"].Value<Int32>();
+                            string colorString = (string)jSymbol["Color"];
+                            Color color;
+                            if (colorString.Contains(","))
+                            {
+                                // 如果颜色字符串包含逗号，则按RGB模式处理
+                                string[] colorParts = colorString.Split(',');
+                                int r = int.Parse(colorParts[0]);
+                                int g = int.Parse(colorParts[1]);
+                                int b = int.Parse(colorParts[2]);
+                                color = Color.FromArgb(r, g, b);
+                            }
+                            else
+                            {
+                                // 否则尝试按名称转换
+                                color = Color.FromName(colorString);
+                            }
+                            sSymbols.Add(sSymbol);
+                        }
+                        sRenderer.Symbols = sSymbols;
+                        sRenderers.Add(sRenderer);
+                    }
+                    else if ((string)jRenderer["RendererType"] == "2")  // 分级渲染
+                    {
+                        moClassBreaksRenderer sRenderer = new moClassBreaksRenderer();
+                        sRenderer.Field = (string)jRenderer["Field"];
+                        sRenderer.BreakValues = jRenderer["BreakValues"].Select(jv => (double)jv).ToList();
+                        List<moSymbol> sSymbols = new List<moSymbol>();
+                        foreach (JToken jSymbol in jRenderer["Symbols"])
+                        {
+                            moSimpleLineSymbol sSymbol = new moSimpleLineSymbol();
+                            sSymbol.Label = (string)jSymbol["Label"];
+                            sSymbol.Style = (moSimpleLineSymbolStyleConstant)jSymbol["Style"].Value<Int32>();
+                            string colorString = (string)jSymbol["Color"];
+                            Color color;
+                            if (colorString.Contains(","))
+                            {
+                                // 如果颜色字符串包含逗号，则按RGB模式处理
+                                string[] colorParts = colorString.Split(',');
+                                int r = int.Parse(colorParts[0]);
+                                int g = int.Parse(colorParts[1]);
+                                int b = int.Parse(colorParts[2]);
+                                color = Color.FromArgb(r, g, b);
+                            }
+                            else
+                            {
+                                // 否则尝试按名称转换
+                                color = Color.FromName(colorString);
+                            }
+                            sSymbols.Add(sSymbol);
+                        }
+                        sRenderer.Symbols = sSymbols;
+                        sRenderers.Add(sRenderer);
+                    }
+                }
+                else if (sLayer.ShapeType == moGeometryTypeConstant.MultiPolygon)  // 面类型的图层
+                {
+                    if ((string)jRenderer["RendererType"] == "0")  // 简单渲染
+                    {
+                        moSimpleRenderer sRenderer = new moSimpleRenderer();
+                        JToken jSymbol = jRenderer["Symbol"];
+                        moSimpleFillSymbol sSymbol = new moSimpleFillSymbol();
+                        sSymbol.Label = (string)jSymbol["Label"];
+                        string colorString = (string)jSymbol["Color"];
+                        Color color;
+                        if (colorString.Contains(","))
+                        {
+                            // 如果颜色字符串包含逗号，则按RGB模式处理
+                            string[] colorParts = colorString.Split(',');
+                            int r = int.Parse(colorParts[0]);
+                            int g = int.Parse(colorParts[1]);
+                            int b = int.Parse(colorParts[2]);
+                            color = Color.FromArgb(r, g, b);
+                        }
+                        else
+                        {
+                            // 否则尝试按名称转换
+                            color = Color.FromName(colorString);
+                        }
+                        sSymbol.Color = color;
+
+                        // 下面是专门处理outline的区域
+                        moSimpleLineSymbol sOutline = new moSimpleLineSymbol();
+                        JToken jOutline = jSymbol["Outline"];
+                        sOutline.Style = (moSimpleLineSymbolStyleConstant)jOutline["Style"].Value<Int32>();
+                        sOutline.Label = (string)jOutline["Label"];
+                        string colorString2 = (string)jOutline["Color"];
+                        Color color2;
+                        if (colorString2.Contains(","))
+                        {
+                            string debugString = colorString2.Replace("'", "");  // 一些奇怪的Bug，需要将多余的字符去除
+                            // 如果颜色字符串包含逗号，则按RGB模式处理
+                            string[] colorParts = debugString.Split(',');
+                            int r = int.Parse(colorParts[0]);
+                            int g = int.Parse(colorParts[1]);
+                            int b = int.Parse(colorParts[2]);
+                            color2 = Color.FromArgb(r, g, b);
+                        }
+                        else
+                        {
+                            // 否则尝试按名称转换
+                            color2 = Color.FromName(colorString2);
+                        }
+                        sOutline.Color = color2;
+                        sSymbol.Outline = sOutline;
+                        // 处理完毕
+
+                        sRenderer.Symbol = sSymbol;
+                        sRenderers.Add(sRenderer);
+                    }
+                    else if ((string)jRenderer["RendererType"] == "1")  // 唯一值渲染
+                    {
+                        moUniqueValueRenderer sRenderer = new moUniqueValueRenderer();
+                        sRenderer.Field = (string)jRenderer["Field"];
+                        sRenderer.Values = jRenderer["Values"].Select(jv => (string)jv).ToList();
+                        List<moSymbol> sSymbols = new List<moSymbol>();
+                        foreach (JToken jSymbol in jRenderer["Symbols"])
+                        {
+                            moSimpleFillSymbol sSymbol = new moSimpleFillSymbol();
+                            sSymbol.Label = (string)jSymbol["Label"];
+                            string colorString = (string)jSymbol["Color"];
+                            Color color;
+                            if (colorString.Contains(","))
+                            {
+                                // 如果颜色字符串包含逗号，则按RGB模式处理
+                                string[] colorParts = colorString.Split(',');
+                                int r = int.Parse(colorParts[0]);
+                                int g = int.Parse(colorParts[1]);
+                                int b = int.Parse(colorParts[2]);
+                                color = Color.FromArgb(r, g, b);
+                            }
+                            else
+                            {
+                                // 否则尝试按名称转换
+                                color = Color.FromName(colorString);
+                            }
+                            sSymbol.Color = color;
+
+                            // 下面是专门处理outline的区域
+                            moSimpleLineSymbol sOutline = new moSimpleLineSymbol();
+                            JToken jOutline = jSymbol["Outline"];
+                            sOutline.Style = (moSimpleLineSymbolStyleConstant)jOutline["Style"].Value<Int32>();
+                            sOutline.Label = (string)jOutline["Label"];
+                            string colorString2 = (string)jOutline["Color"];
+                            Color color2;
+                            if (colorString2.Contains(","))
+                            {
+                                string debugString = colorString2.Replace("'", "");
+                                // 如果颜色字符串包含逗号，则按RGB模式处理
+                                string[] colorParts = debugString.Split(',');
+                                int r = int.Parse(colorParts[0]);
+                                int g = int.Parse(colorParts[1]);
+                                int b = int.Parse(colorParts[2]);
+                                color2 = Color.FromArgb(r, g, b);
+                            }
+                            else
+                            {
+                                // 否则尝试按名称转换
+                                color2 = Color.FromName(colorString2);
+                            }
+                            sOutline.Color = color2;
+                            sSymbol.Outline = sOutline;
+                            // 处理完毕
+                            sSymbols.Add(sSymbol);
+                        }
+                        sRenderer.Symbols = sSymbols;
+                        sRenderers.Add(sRenderer);
+                    }
+                    else if ((string)jRenderer["RendererType"] == "2")  // 分级渲染
+                    {
+                        moClassBreaksRenderer sRenderer = new moClassBreaksRenderer();
+                        sRenderer.Field = (string)jRenderer["Field"];
+                        sRenderer.BreakValues = jRenderer["BreakValues"].Select(jv => (double)jv).ToList();
+                        List<moSymbol> sSymbols = new List<moSymbol>();
+                        foreach (JToken jSymbol in jRenderer["Symbols"])
+                        {
+                            moSimpleFillSymbol sSymbol = new moSimpleFillSymbol();
+                            sSymbol.Label = (string)jSymbol["Label"];
+                            string colorString = (string)jSymbol["Color"];
+                            Color color;
+                            if (colorString.Contains(","))
+                            {
+                                // 如果颜色字符串包含逗号，则按RGB模式处理
+                                string[] colorParts = colorString.Split(',');
+                                int r = int.Parse(colorParts[0]);
+                                int g = int.Parse(colorParts[1]);
+                                int b = int.Parse(colorParts[2]);
+                                color = Color.FromArgb(r, g, b);
+                            }
+                            else
+                            {
+                                // 否则尝试按名称转换
+                                color = Color.FromName(colorString);
+                            }
+                            sSymbol.Color = color;
+
+                            // 下面是专门处理outline的区域
+                            moSimpleLineSymbol sOutline = new moSimpleLineSymbol();
+                            JToken jOutline = jSymbol["Outline"];
+                            sOutline.Style = (moSimpleLineSymbolStyleConstant)jOutline["Style"].Value<Int32>();
+                            sOutline.Label = (string)jOutline["Label"];
+                            string colorString2 = (string)jOutline["Color"];
+                            Color color2;
+                            if (colorString2.Contains(","))
+                            {
+                                string debugString = colorString2.Replace("'", "");
+                                // 如果颜色字符串包含逗号，则按RGB模式处理
+                                string[] colorParts = debugString.Split(',');
+                                int r = int.Parse(colorParts[0]);
+                                int g = int.Parse(colorParts[1]);
+                                int b = int.Parse(colorParts[2]);
+                                color2 = Color.FromArgb(r, g, b);
+                            }
+                            else
+                            {
+                                // 否则尝试按名称转换
+                                color2 = Color.FromName(colorString2);
+                            }
+                            sOutline.Color = color2;
+                            sSymbol.Outline = sOutline;
+
+                            sSymbols.Add(sSymbol);
+                        }
+                        sRenderer.Symbols = sSymbols;
+                        sRenderers.Add(sRenderer);
+                    }
+                }
+            }
+            
+            return sRenderers;
+            
         }
 
         #endregion
@@ -404,6 +907,98 @@ namespace ZcpGIS
             attributesList = sAttributesList;
         }
 
+        private static void ReadzdbfFile(string zdbfFileName, out MyMapObjects.moFields fields, out List<MyMapObjects.moAttributes> attributesList)
+        {
+            // 1 将 JSON 文本解析为 JObject 对象
+            string jsonText = File.ReadAllText(zdbfFileName);
+            JObject jsonObj = JObject.Parse(jsonText);
+
+            // 2 检查读取格式
+            if ((string)jsonObj["FileType"] != "zdbf")
+            {
+                throw new Exception("请使用正确的zshp格式文件！");
+            }
+
+            // 3 获取点类型
+            MyMapObjects.moGeometryTypeConstant sShapeType;
+            if ((string)jsonObj["ShapeType"] == "1")
+            {
+                sShapeType = MyMapObjects.moGeometryTypeConstant.MultiPolyline;
+            }
+            else if ((string)jsonObj["ShapeType"] == "2")
+            {
+                sShapeType = MyMapObjects.moGeometryTypeConstant.MultiPolygon;
+            }
+            else if ((string)jsonObj["ShapeType"] == "0")
+            {
+                sShapeType = MyMapObjects.moGeometryTypeConstant.Point;
+            }
+            else
+            {
+                throw new Exception("不合法的zshp对象类型，请检查输入！");
+            }
+
+            // 4 获取一个Fields对象
+            JArray sFieldTypes = (JArray)jsonObj["FieldTypes"];
+            JArray sFieldNames = (JArray)jsonObj["FieldNames"];
+            if (sFieldTypes.Count != sFieldNames.Count)
+            {
+                throw new Exception("字段名称和字段类型长度不相等！");
+            }
+            Int32 sFieldCount = sFieldTypes.Count;
+            MyMapObjects.moFields sFields = new MyMapObjects.moFields();
+            for (Int32 i = 0; i <= sFieldCount - 1; i++)
+            {
+                // 建立moField
+                int sFieldTypeInt = (int)sFieldTypes[i];
+                MyMapObjects.moField sField = new MyMapObjects.moField((string)sFieldNames[i], (MyMapObjects.moValueTypeConstant)sFieldTypeInt);
+                sFields.Append(sField);
+            }
+            fields = sFields;
+
+            // 5 获取一个Attributes的List对象，也就是一个“二维表”
+            List<MyMapObjects.moAttributes> sAttributesList = new List<moAttributes>();
+            JArray sAttributesListValue = (JArray)jsonObj["Attributes"];  // 这是一个二维表
+            foreach (JArray sAttributeValue in sAttributesListValue)  // 取出每一行的值，这里已经包含了强制转换，将JToken转换为JArray
+            {
+                MyMapObjects.moAttributes sAttributes = new MyMapObjects.moAttributes();  // 新建一行
+                for (Int32 i = 0; i <= sFieldCount - 1; i++)  // 在该行中遍历
+                {
+                    int sFieldTypeInt = (int)sFieldTypes[i];  // 获取该行中某列的变量类型
+                    if (sFieldTypeInt == 0)  // Int16
+                    {
+                        Int16 sValue = Int16.Parse((string)sAttributeValue[i]);
+                        sAttributes.Append(sValue);
+                    }
+                    else if (sFieldTypeInt == 1)  // Int32
+                    {
+                        Int32 sValue = Int32.Parse((string)sAttributeValue[i]);
+                        sAttributes.Append(sValue);
+                    }
+                    else if (sFieldTypeInt == 2)  // Int64
+                    {
+                        Int64 sValue = Int64.Parse((string)sAttributeValue[i]);
+                        sAttributes.Append(sValue);
+                    }
+                    else if (sFieldTypeInt == 3)  // Single
+                    {
+                        Single sValue = Single.Parse((string)sAttributeValue[i]);
+                        sAttributes.Append(sValue);
+                    }
+                    else if (sFieldTypeInt == 4)  // Double
+                    {
+                        double sValue = double.Parse((string)sAttributeValue[i]);
+                        sAttributes.Append(sValue);
+                    }
+                    else if (sFieldTypeInt == 5)  // Text
+                    {
+                        sAttributes.Append((string)sAttributeValue[i]);
+                    }
+                }
+                sAttributesList.Add(sAttributes);
+            }
+            attributesList = sAttributesList;
+        }
         #endregion
     }
 }

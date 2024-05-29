@@ -219,5 +219,22 @@ namespace ZcpGIS
                 panelEnd.BackColor = _EndColor;
             }
         }
+
+        private void btnRandomColor_Click(object sender, EventArgs e)
+        {
+            Random random = new Random();
+            int red = random.Next(256); // 0 - 255
+            int green = random.Next(256);
+            int blue = random.Next(256);
+            Color startColor = Color.FromArgb(red, green, blue);
+            _StartColor = startColor;
+            panelStart.BackColor = _StartColor;
+            int ered = random.Next(256); // 0 - 255
+            int egreen = random.Next(256);
+            int eblue = random.Next(256);
+            Color endColor = Color.FromArgb(ered, egreen, eblue);
+            _EndColor = endColor;
+            panelEnd.BackColor = _EndColor;
+        }
     }
 }
